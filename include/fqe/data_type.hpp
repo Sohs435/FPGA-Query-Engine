@@ -1,13 +1,13 @@
 // defines supported database datatypes i.e int_32 and int_64
 
-# pragma once
+#pragma once
 
-# include <string_view>
+#include <string_view>
 
 namespace fqe{
     enum class DataType{Int32, Int64};
 
-    std::string_view to_string(DataType type);
+    std::string_view to_string(DataType type) noexcept;
     // convert type to readable text cuz we will eventually
     // need engine to print schemas and error messages 
 }
