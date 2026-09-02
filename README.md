@@ -15,7 +15,9 @@ A database table stores structured data. A **query** asks for selected data or a
 In row-oriented storage, all fields belonging to one record are placed together:
 
 ```text
-[1200, 600, 1] [900, 700, 2] [1500, 100, 1]
+[1200, 600, 1]
+ [900, 700, 2]
+[1500, 100, 1]
 ```
 
 In columnar storage, values from the same field are contiguous:
@@ -49,8 +51,7 @@ the result is:
 
 ```text
 COUNT = 2
-SUM   = 1200 × 600 + 1800 × 800
-      = 2160000
+SUM  = 720000 + 1440000 = 2160000
 ```
 
 The query performs four operations:
