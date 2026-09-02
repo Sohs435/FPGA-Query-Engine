@@ -51,8 +51,7 @@ the result is:
 
 ```text
 COUNT = 2
-SUM   = 1200 × 600 + 1800 × 800
-      = 2160000
+SUM  = 720000 + 1440000 = 2160000
 ```
 
 The query performs four operations:
