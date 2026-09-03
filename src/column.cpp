@@ -1,6 +1,6 @@
 #include "fqe/column.hpp"
 #include "fqe/data_type.hpp"
-
+#include <utility>
 #include <stdexcept>
 
 namespace fqe { 
@@ -27,6 +27,10 @@ namespace fqe {
     }
 
     Column::Column(DataType type) : data_(make_column_data(type)){}
+
+    Column::Column(std::vector<std::int32_t> values) : data_(std::move(values)) {}
+
+    Column::Column(std::vector<std::int64_t> values) : data_(std::move(values)) {}
 
     // apply .type() to a column to return the data type of the elements in the vector
     // either signed 32 or 64 bit

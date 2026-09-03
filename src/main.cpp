@@ -2,6 +2,7 @@
 #include "fqe/data_type.hpp"
 #include "fqe/schema.hpp"
 #include "fqe/column.hpp"
+#include "fqe/table.hpp"
 
 int main() {
 
@@ -45,6 +46,27 @@ int main() {
 
     for (std::int32_t val : values){
         std::cout << val << '\n';
+    }
+
+    fqe::Table trades_table(
+        trades, 
+        {
+            prices,
+            fqe::Column(std::vector<std::int32_t>{600, 700, 800}),
+            fqe::Column(std::vector<std::int32_t>{1, 2, 1}),
+            fqe::Column(std::vector<std::int64_t>{100000001, 100000002, 100000003})
+        }
+    );
+
+    std::cout << "Table rows: " << trades_table.row_count() << '\n';
+    std::cout << "Table columns: " << trades_table.column_count() << '\n';
+
+    const fqe::Column& quantity_column = trades_table.column("quantity");
+
+    const auto& quantities = std::get<std::vector<std::int32_t>>(quantity_column.data());
+
+    for (std:: int32_t quantity : quantities){
+        std::cout << quantity << '\n'; 
     }
 
     return 0;

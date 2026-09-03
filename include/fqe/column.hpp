@@ -14,7 +14,11 @@ namespace fqe {
     class Column {
 
         public:
-            explicit Column(DataType type); // column constructor 
+            explicit Column(DataType type); 
+
+            explicit Column(std::vector<std::int32_t> values);
+
+            explicit Column(std::vector<std::int64_t> values); // column constructors
 
             DataType type() const noexcept; // .type() will return whether
             // DataType is int32 or 64
@@ -35,8 +39,7 @@ namespace fqe {
             // element values present in the column 
 
         private:
-
-            ColumnData data_; 
+            ColumnData data_;
     };
 
 }
