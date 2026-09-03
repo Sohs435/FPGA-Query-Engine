@@ -3,6 +3,7 @@
 #include "fqe/schema.hpp"
 #include "fqe/column.hpp"
 #include "fqe/table.hpp"
+#include "fqe/csv_loader.hpp"
 
 int main() {
 
@@ -67,6 +68,29 @@ int main() {
 
     for (std:: int32_t quantity : quantities){
         std::cout << quantity << '\n'; 
+    }
+
+    fqe::Table csv_table = fqe::load_csv("data/trades_test.csv", trades);
+
+    std::cout << "\nCSV table rows: "  << csv_table.row_count() << '\n';
+
+    std::cout << "CSV table columns: " << csv_table.column_count() << '\n';
+
+    const auto& csv_prices = std::get<std::vector<std::int32_t>>(
+        csv_table.column("price").data());
+
+    const auto& csv_quantities = std::get<std::vector<std::int32_t>>(
+        csv_table.column("quantity").data());
+
+    const auto& csv_instruments = std::get<std::vector<std::int32_t>>(
+        csv_table.column("instrument").data());
+
+    const auto& csv_timestamps = std::get<std::vector<std::int64_t>>(
+        csv_table.column("timestamp").data());
+
+    for (std::size_t i = 0; i < csv_table.row_count(); i++){
+
+        std::cout << csv_prices[i] << ", " << csv_quantities[i] << ", " << csv_instruments[i] << ", " << csv_timestamps[i] << '\n';
     }
 
     return 0;
