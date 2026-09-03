@@ -2,7 +2,7 @@
 
 # FPGA-Accelerated Columnar Query Engine
 
-> **Status:** Planning and initial C++ implementation
+> **Status:** Creating the Engine to work purely on PS - PL (fpga) integration post that 
 
 This project implements a small columnar analytical query engine on the PYNQ-Z2. A C++ application running on the Zynq Processing System (PS) parses queries, executes them on an ARM CPU backend, and offloads suitable operations to a custom accelerator in the Programmable Logic (PL).
 
