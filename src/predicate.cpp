@@ -79,7 +79,7 @@ namespace fqe {
 
     }
 
-    void invert(SelectionMask& current_mask){
+    void invert_mask(SelectionMask& current_mask){
 
         for (std::size_t i = 0; i < current_mask.size(); i++){
             current_mask[i] = !current_mask[i];

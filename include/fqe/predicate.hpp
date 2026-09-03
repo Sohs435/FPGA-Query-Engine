@@ -28,4 +28,10 @@ namespace fqe {
     using SelectionMask = std::vector<std::uint8_t>;
 
     SelectionMask evaluate_predicate(const Table& table, const ComparisonPredicate& predicate);
+
+    void combine_and(SelectionMask& current_mask, const SelectionMask& new_mask);
+
+    void combine_or(SelectionMask& current_mask, const SelectionMask& new_mask);
+
+    void invert_mask(SelectionMask& mask);
 }
