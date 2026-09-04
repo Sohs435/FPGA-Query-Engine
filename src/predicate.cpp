@@ -1,5 +1,5 @@
 #include "fqe/predicate.hpp"
-
+#include "fqe/binder.hpp"
 #include <stdexcept>
 #include <variant> 
 
@@ -36,9 +36,15 @@ namespace fqe {
 
     }
 
-    SelectionMask evaluate_predicate (const Table& table, const ComparisonPredicate& predicate){
+    SelectionMask evaluate_predicate (const Table& table, const BoundComparisonPredicate& predicate){
 
-        const Column& column = table.column(predicate.column_name);
+        const Column& column = table.column(predicate.column_index);
+
+        if (column.type() != predicate.column_type){
+            throw std::invalid_argument(
+                "Bound predicate type does not match table column type"
+            );
+        }
 
         SelectionMask mask(column.size(), 0);
 
