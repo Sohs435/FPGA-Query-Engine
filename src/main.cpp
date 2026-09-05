@@ -631,10 +631,10 @@ int main() {
     // GROUP BY instrument;
 
     std::string tokenizer_query =
-        "SELECT SUM(price * quantity), COUNT(*) "
-        "FROM trades "
+        "SeLECT SUM(price * quantity), COUNT(*) "
+        "FRoM trades "
         "WHERE quantity >= 500 "
-        "AND NOT (price < 1000 OR instrument IN (2, 3)) "
+        "ANd NOT (price < 1000 OR instrument IN (2, 3)) "
         "GROUP BY instrument;";
 
     fqe::Tokenizer query_tokenizer(tokenizer_query);
@@ -643,7 +643,7 @@ int main() {
 
     std::cout << "\nTokenizer output:\n";
     
-    //check all token type values match what shld be in code
+    //check all token type values in query and if they match and in order
     for (const fqe::Token& token : tokenizer_tokens) {
 
         std::cout << token.position << " | " << fqe::to_string(token.type) << " | '"
