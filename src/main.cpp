@@ -10,6 +10,7 @@
 #include "fqe/filter.hpp"
 #include <limits>
 #include <stdexcept>
+#include "fqe/tokenizer.hpp"
   
 int main() {  
   
@@ -528,11 +529,11 @@ int main() {
             fqe::bind_predicate_expression(csv_table.schema(),
                 *tree_invalid_column_expression);
 
-        std::cout << "Invalid column test: FAILED\n";
+        std::cout << "Invalid column test: FAIL\n";
     }
 
     catch (const std::out_of_range& error){
-        std::cout << "Invalid column test: PASSED - "
+        std::cout << "Invalid column test: PASS "
             << error.what() << '\n';
     }
 
@@ -561,7 +562,7 @@ int main() {
             fqe::evaluate_predicate_expression(csv_table,
                 *tree_bound_division_zero_expression);
 
-        std::cout << "Division by zero test: FAILED\n";
+        std::cout << "Division by zero test: FAIL\n";
     }
 
     catch (const std::domain_error& error){
@@ -598,8 +599,7 @@ int main() {
     }
 
     catch (const std::overflow_error& error){
-        std::cout << "Arithmetic overflow test: PASSED - "
-            << error.what() << '\n';
+        std::cout << "Arithmetic overflow test: PASSED - " << error.what() << '\n';
     }
 
 
@@ -616,12 +616,45 @@ int main() {
     );
 
     fqe::SelectionMask empty_table_selection_mask =
-        fqe::evaluate_predicate_expression(empty_filter_table,
-            *tree_bound_true_expression);
+        fqe::evaluate_predicate_expression(empty_filter_table, *tree_bound_true_expression);
 
-    std::cout << "Empty table count: "
-        << fqe::count_selected(empty_table_selection_mask)
-        << " (expected 0)\n";
+    std::cout << "Empty table count: "<< fqe::count_selected(empty_table_selection_mask)
+     << " (expected 0)\n";
+
+     //TOKENIZER TESTING/DEBUGGING
+
+    // Tokenizes:
+    // SELECT SUM(price * quantity), COUNT(*)
+    // FROM trades
+    // WHERE quantity >= 500
+    // AND NOT (price < 1000 OR instrument IN (2, 3))
+    // GROUP BY instrument;
+
+    std::string tokenizer_query =
+        "SELECT SUM(price * quantity), COUNT(*) "
+        "FROM trades "
+        "WHERE quantity >= 500 "
+        "AND NOT (price < 1000 OR instrument IN (2, 3)) "
+        "GROUP BY instrument;";
+
+    fqe::Tokenizer query_tokenizer(tokenizer_query);
+
+    std::vector<fqe::Token> tokenizer_tokens = query_tokenizer.tokenize();
+
+    std::cout << "\nTokenizer output:\n";
+    
+    //check all token type values match what shld be in code
+    for (const fqe::Token& token : tokenizer_tokens) {
+
+        std::cout << token.position << " | " << fqe::to_string(token.type) << " | '"
+            << token.text << "'";
+
+        if (token.integer_value.has_value()) {
+            std::cout << " | value = " << token.integer_value.value();
+        }
+
+        std::cout << '\n';
+    }
   
     return 0;  
 }

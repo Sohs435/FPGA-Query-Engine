@@ -206,9 +206,9 @@ namespace fqe {
         // for example 
         
         //But like how?
-        //we take schema which gives name and index for each relevant column 
+        //Im thinking we take schema which gives name and index for each relevant column 
         //expression is unbound scalar expression 
-        // select node type viva std::visit(overloaded{type1, type2, type3}) as
+        // select node type via std::visit(overloaded{type1, type2, type3}, node) as
         // expression.node is one of a column ref, integer literal, arithmetic expression
 
         BoundScalarExpressionPtr bind_scalar_expression(
@@ -278,9 +278,8 @@ namespace fqe {
             );
         }
 
-        BoundPredicateExpressionPtr bind_predicate_node(
-            const Schema& schema,
-            const PredicateExpression& expression) {
+        BoundPredicateExpressionPtr bind_predicate_node(const Schema& schema, 
+         const PredicateExpression& expression) {
 
             return std::visit(
                 Overloaded{
