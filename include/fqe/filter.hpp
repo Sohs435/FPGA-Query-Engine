@@ -215,12 +215,14 @@ namespace fqe {
      std::vector<std::int64_t> candidates, bool negated = false);
 
     PredicateExpressionPtr make_boolean(bool value);
+    
+    BoundScalarExpressionPtr bind_scalar_expression(const Schema& schema, const ScalarExpression& expression);
 
     BoundPredicateExpressionPtr bind_predicate_expression( const Schema& schema,
      const PredicateExpression& expression);
 
-    SelectionMask evaluate_predicate_expression(const Table& table,
-     const BoundPredicateExpression& expression);
+     std::int64_t evaluate_scalar_expression(const Table& table, const BoundScalarExpression& expression, 
+        std::size_t row_index);
 
-
+    SelectionMask evaluate_predicate_expression(const Table& table, const BoundPredicateExpression& expression);
 }

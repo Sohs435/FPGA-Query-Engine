@@ -11,6 +11,7 @@
 #include <limits>
 #include <stdexcept>
 #include "fqe/tokenizer.hpp"
+#include "fqe/parser.hpp"
   
 int main() {  
   
@@ -655,6 +656,213 @@ int main() {
 
         std::cout << '\n';
     }
+
+    // SQL parser test:
+    // SELECT SUM(price * quantity) AS total_value, COUNT(*)
+    // FROM trades
+    // WHERE quantity >= 500
+    // AND NOT (price < 1000 OR instrument IN (2, 3))
+    // GROUP BY instrument;
+
+    std::string parser_query_text =
+        "SELECT SUM(price * quantity) AS total_value, COUNT(*) "
+        "FROM trades "
+        "WHERE quantity >= 500 "
+        "AND NOT (price < 1000 OR instrument IN (2, 3)) "
+        "GROUP BY instrument;";
+
+    fqe::Tokenizer parser_tokenizer(parser_query_text);
+
+    fqe::Parser parser(parser_tokenizer.tokenize());
+
+    fqe::ParsedQuery parser_query = parser.parse_query();
+
+    std::cout << "\nParser test\n";
+
+    std::cout << "Table name: " << parser_query.table_name
+        << " (expected trades)\n";
+
+    std::cout << "Select item count: " << parser_query.select_items.size()
+        << " (expected 2)\n";
+
+    std::cout << "Group-by column count: " << parser_query.group_by_columns.size()
+        << " (expected 1)\n";
+
+    if (!parser_query.group_by_columns.empty()) {
+        std::cout << "Group-by column: " << parser_query.group_by_columns[0]
+            << " (expected instrument)\n";
+    }
+
+    bool parser_select_items_valid = parser_query.select_items.size() == 2;
+
+    if (parser_select_items_valid) {
+
+        const fqe::SelectItem& parser_sum_item = parser_query.select_items[0];
+
+        const fqe::SelectItem& parser_count_item = parser_query.select_items[1];
+
+        parser_select_items_valid =
+            parser_sum_item.aggregate.has_value() &&
+            parser_sum_item.aggregate.value() == fqe::AggregateFunction::Sum &&
+            parser_sum_item.expression != nullptr &&
+            !parser_sum_item.is_star &&
+            parser_sum_item.alias.has_value() &&
+            parser_sum_item.alias.value() == "total_value" &&
+            parser_count_item.aggregate.has_value() &&
+            parser_count_item.aggregate.value() == fqe::AggregateFunction::Count &&
+            parser_count_item.expression == nullptr &&
+            parser_count_item.is_star;
+    }
+
+    std::cout << "Select item structure: "
+        << (parser_select_items_valid ? "PASSED" : "FAILED") << '\n';
+
+    if (parser_query.where_expression != nullptr) {
+
+        fqe::BoundPredicateExpressionPtr parser_bound_where =
+            fqe::bind_predicate_expression(csv_table.schema(),
+                *parser_query.where_expression);
+
+        fqe::SelectionMask parser_selection_mask =
+            fqe::evaluate_predicate_expression(csv_table,
+                *parser_bound_where);
+
+        std::size_t parser_selected_count =
+            fqe::count_selected(parser_selection_mask);
+
+        std::cout << "Parsed WHERE count: " << parser_selected_count
+            << " (expected 13)\n";
+    }
+
+    else {
+        std::cout << "Parsed WHERE expression: FAILED\n";
+    }
+
+    // Tests arithmetic precedence:
+    // SELECT COUNT(*)
+    // FROM trades
+    // WHERE price * quantity > 1000000;
+
+    std::string parser_arithmetic_query_text =
+        "SELECT COUNT(*) "
+        "FROM trades "
+        "WHERE price * quantity > 1000000;";
+
+    fqe::Tokenizer parser_arithmetic_tokenizer(parser_arithmetic_query_text);
+
+    fqe::Parser parser_arithmetic_parser(
+        parser_arithmetic_tokenizer.tokenize());
+
+    fqe::ParsedQuery parser_arithmetic_query =
+        parser_arithmetic_parser.parse_query();
+
+    fqe::BoundPredicateExpressionPtr parser_arithmetic_bound =
+        fqe::bind_predicate_expression(csv_table.schema(),
+            *parser_arithmetic_query.where_expression);
+
+    fqe::SelectionMask parser_arithmetic_mask =
+        fqe::evaluate_predicate_expression(csv_table,
+            *parser_arithmetic_bound);
+
+    std::cout << "Parsed arithmetic count: "
+        << fqe::count_selected(parser_arithmetic_mask)
+        << " (expected 11)\n";
+
+    // Invalid query: missing FROM.
+
+    try {
+
+        std::string parser_missing_from_text =
+            "SELECT COUNT(*) trades;";
+
+        fqe::Tokenizer parser_missing_from_tokenizer(
+            parser_missing_from_text);
+
+        fqe::Parser parser_missing_from_parser(
+            parser_missing_from_tokenizer.tokenize());
+
+        parser_missing_from_parser.parse_query();
+
+        std::cout << "Missing FROM test: FAILED\n";
+    }
+
+    catch (const std::invalid_argument& error) {
+        std::cout << "Missing FROM test: PASSED - "
+            << error.what() << '\n';
+    }
+
+    // Invalid query: only COUNT may use *.
+
+    try {
+
+        std::string parser_sum_star_text =
+            "SELECT SUM(*) FROM trades;";
+
+        fqe::Tokenizer parser_sum_star_tokenizer(parser_sum_star_text);
+
+        fqe::Parser parser_sum_star_parser(
+            parser_sum_star_tokenizer.tokenize());
+
+        parser_sum_star_parser.parse_query();
+
+        std::cout << "SUM(*) test: FAILED\n";
+    }
+
+    catch (const std::invalid_argument& error) {
+        std::cout << "SUM(*) test: PASSED - "
+            << error.what() << '\n';
+    }
+
+    // Invalid query: empty IN list.
+
+    try {
+
+        std::string parser_empty_in_text =
+            "SELECT COUNT(*) "
+            "FROM trades "
+            "WHERE instrument IN ();";
+
+        fqe::Tokenizer parser_empty_in_tokenizer(parser_empty_in_text);
+
+        fqe::Parser parser_empty_in_parser(
+            parser_empty_in_tokenizer.tokenize());
+
+        parser_empty_in_parser.parse_query();
+
+        std::cout << "Empty IN test: FAILED\n";
+    }
+
+    catch (const std::invalid_argument& error) {
+        std::cout << "Empty IN test: PASSED - "
+            << error.what() << '\n';
+    }
+
+    // Invalid query: missing closing parenthesis.
+
+    try {
+
+        std::string parser_unclosed_parenthesis_text =
+            "SELECT COUNT(*) "
+            "FROM trades "
+            "WHERE (quantity > 500;";
+
+        fqe::Tokenizer parser_unclosed_parenthesis_tokenizer(
+            parser_unclosed_parenthesis_text);
+
+        fqe::Parser parser_unclosed_parenthesis_parser(
+            parser_unclosed_parenthesis_tokenizer.tokenize());
+
+        parser_unclosed_parenthesis_parser.parse_query();
+
+        std::cout << "Unclosed parenthesis test: FAILED\n";
+    }
+
+    catch (const std::invalid_argument& error) {
+        std::cout << "Unclosed parenthesis test: PASSED - "
+            << error.what() << '\n';
+    }
+
+
   
     return 0;  
 }

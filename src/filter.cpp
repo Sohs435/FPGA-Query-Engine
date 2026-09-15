@@ -198,85 +198,8 @@ namespace fqe {
             throw std::invalid_argument("Unsupported arithmetic operator");
         }
 
-        //Convert unbound scalar-expression tree -> bound scalar expression tree
-        //Say we have: price * quantity -> Multiply -> ColumnReference ("price")
-                                     // |---> ColumnReference ("quantity")
-        // want to make "price" -> index = 0, type = some type
-        //              "quantity" -> index = 1, type = some type
-        // for example 
+
         
-        //But like how?
-        //Im thinking we take schema which gives name and index for each relevant column 
-        //expression is unbound scalar expression 
-        // select node type via std::visit(overloaded{type1, type2, type3}, node) as
-        // expression.node is one of a column ref, integer literal, arithmetic expression
-
-        BoundScalarExpressionPtr bind_scalar_expression(
-            const Schema& schema,
-            const ScalarExpression& expression) {
-
-            return std::visit(
-                Overloaded{
-                    // capture all variables in lambda by ref -> as lambda will need schema
-                    // for index and datatype
-                    // current node is column ref ex. ColumnReference{"price"}
-                    [&] (const ColumnReference& column)
-                        -> BoundScalarExpressionPtr {
-
-                        // find index from schema
-                        std::size_t column_index = schema.index_of(column.column_name);
-                        
-                        // find data type from schema 
-                        DataType column_type = schema.field(column_index).type;
-                        
-                        // create bound reference
-                        // ColumnReference("price") -> BoundColumnReference(0, some type)
-                        BoundColumnReference bound_column{column_index, column_type};
-                        
-                        // construct node and return its ptr
-                        return std::make_unique<BoundScalarExpression>(BoundScalarNode{
-                         std::move(bound_column)}, column_type);
-                    },
-
-                    // no need for schema or expression cuz we dont need type or index
-                    // for something that is not part of the table in itself and only 
-                    // exists in external query -> so we dont pass any variable surrounding
-                    // lambda by ref 
-                    [] (const IntegerLiteral& literal) -> BoundScalarExpressionPtr {
-
-                        //construct BoundIntegerLiteral structure which then is used 
-                        // to make the scalar expression ptr 
-                        BoundIntegerLiteral bound_literal{literal.value};
-
-                        return std::make_unique<BoundScalarExpression>(BoundScalarNode{
-                         std::move(bound_literal)}, DataType::Int64);
-                    },
-
-                    [&] (const ArithmeticExpression& arithmetic) -> BoundScalarExpressionPtr {
-
-                        if (arithmetic.left == nullptr || arithmetic.right == nullptr) {
-
-                            throw std::invalid_argument("Arithmetic expression has a null child");
-                        }
-
-                        BoundScalarExpressionPtr left = bind_scalar_expression(schema, 
-                         *arithmetic.left);
-
-                        BoundScalarExpressionPtr right = bind_scalar_expression(schema, 
-                         *arithmetic.right);
-
-                        BoundArithmeticExpression bound_arithmetic{arithmetic.operation,
-                         std::move(left), std::move(right)};
-
-                        return std::make_unique<BoundScalarExpression>(BoundScalarNode{
-                         std::move(bound_arithmetic)}, DataType::Int64);
-                    }
-
-                },
-
-                expression.node // store created node here 
-            );
-        }
 
         BoundPredicateExpressionPtr bind_predicate_node(const Schema& schema, 
          const PredicateExpression& expression) {
@@ -456,77 +379,6 @@ namespace fqe {
             );
         }
 
-        std::int64_t evaluate_scalar_expression(
-            const Table& table,
-            const BoundScalarExpression& expression,
-            std::size_t row_index) {
-
-            return std::visit(
-                Overloaded{
-
-                    [&] (const BoundColumnReference& column)
-                        -> std::int64_t {
-
-                        const Column& table_column =
-                            table.column(column.column_index);
-
-                        if (table_column.type() !=
-                            column.column_type) {
-
-                            throw std::invalid_argument(
-                                "Bound column type does not match table"
-                            );
-                        }
-
-                        return std::visit(
-                            [row_index] (const auto& values)
-                                -> std::int64_t {
-
-                                if (row_index >= values.size()){
-                                    throw std::out_of_range(
-                                        "Row index out of range"
-                                    );
-                                }
-
-                                return static_cast<std::int64_t>(
-                                    values[row_index]
-                                );
-                            },
-
-                            table_column.data()
-                        );
-                    },
-
-                    [] (const BoundIntegerLiteral& literal)
-                        -> std::int64_t {
-
-                        return literal.value;
-                    },
-
-                    [&] (
-                        const BoundArithmeticExpression& arithmetic)
-                        -> std::int64_t {
-
-                        std::int64_t left_value =
-                            evaluate_scalar_expression(
-                                table, *arithmetic.left, row_index);
-
-                        std::int64_t right_value =
-                            evaluate_scalar_expression(
-                                table, *arithmetic.right, row_index);
-
-                        return calculate_arithmetic(
-                            arithmetic.operation,
-                            left_value,
-                            right_value
-                        );
-                    }
-
-                },
-
-                expression.node
-            );
-        }
 
         bool evaluate_predicate_at_row(
             const Table& table,
@@ -626,6 +478,159 @@ namespace fqe {
         }
 
     }
+
+    std::int64_t evaluate_scalar_expression(
+            const Table& table,
+            const BoundScalarExpression& expression,
+            std::size_t row_index) {
+
+            return std::visit(
+                Overloaded{
+
+                    [&] (const BoundColumnReference& column)
+                        -> std::int64_t {
+
+                        const Column& table_column =
+                            table.column(column.column_index);
+
+                        if (table_column.type() !=
+                            column.column_type) {
+
+                            throw std::invalid_argument(
+                                "Bound column type does not match table"
+                            );
+                        }
+
+                        return std::visit(
+                            [row_index] (const auto& values)
+                                -> std::int64_t {
+
+                                if (row_index >= values.size()){
+                                    throw std::out_of_range(
+                                        "Row index out of range"
+                                    );
+                                }
+
+                                return static_cast<std::int64_t>(
+                                    values[row_index]
+                                );
+                            },
+
+                            table_column.data()
+                        );
+                    },
+
+                    [] (const BoundIntegerLiteral& literal)
+                        -> std::int64_t {
+
+                        return literal.value;
+                    },
+
+                    [&] (
+                        const BoundArithmeticExpression& arithmetic)
+                        -> std::int64_t {
+
+                        std::int64_t left_value =
+                            evaluate_scalar_expression(
+                                table, *arithmetic.left, row_index);
+
+                        std::int64_t right_value =
+                            evaluate_scalar_expression(
+                                table, *arithmetic.right, row_index);
+
+                        return calculate_arithmetic(
+                            arithmetic.operation,
+                            left_value,
+                            right_value
+                        );
+                    }
+
+                },
+
+                expression.node
+            );
+        }
+
+
+        //Convert unbound scalar-expression tree -> bound scalar expression tree
+        //Say we have: price * quantity -> Multiply -> ColumnReference ("price")
+                                     // |---> ColumnReference ("quantity")
+        // want to make "price" -> index = 0, type = some type
+        //              "quantity" -> index = 1, type = some type
+        // for example 
+        
+        //But like how?
+        //Im thinking we take schema which gives name and index for each relevant column 
+        //expression is unbound scalar expression 
+        // select node type via std::visit(overloaded{type1, type2, type3}, node) as
+        // expression.node is one of a column ref, integer literal, arithmetic expression
+
+    BoundScalarExpressionPtr bind_scalar_expression(
+            const Schema& schema,
+            const ScalarExpression& expression) {
+
+            return std::visit(
+                Overloaded{
+                    // capture all variables in lambda by ref -> as lambda will need schema
+                    // for index and datatype
+                    // current node is column ref ex. ColumnReference{"price"}
+                    [&] (const ColumnReference& column)
+                        -> BoundScalarExpressionPtr {
+
+                        // find index from schema
+                        std::size_t column_index = schema.index_of(column.column_name);
+                        
+                        // find data type from schema 
+                        DataType column_type = schema.field(column_index).type;
+                        
+                        // create bound reference
+                        // ColumnReference("price") -> BoundColumnReference(0, some type)
+                        BoundColumnReference bound_column{column_index, column_type};
+                        
+                        // construct node and return its ptr
+                        return std::make_unique<BoundScalarExpression>(BoundScalarNode{
+                         std::move(bound_column)}, column_type);
+                    },
+
+                    // no need for schema or expression cuz we dont need type or index
+                    // for something that is not part of the table in itself and only 
+                    // exists in external query -> so we dont pass any variable surrounding
+                    // lambda by ref 
+                    [] (const IntegerLiteral& literal) -> BoundScalarExpressionPtr {
+
+                        //construct BoundIntegerLiteral structure which then is used 
+                        // to make the scalar expression ptr 
+                        BoundIntegerLiteral bound_literal{literal.value};
+
+                        return std::make_unique<BoundScalarExpression>(BoundScalarNode{
+                         std::move(bound_literal)}, DataType::Int64);
+                    },
+
+                    [&] (const ArithmeticExpression& arithmetic) -> BoundScalarExpressionPtr {
+
+                        if (arithmetic.left == nullptr || arithmetic.right == nullptr) {
+
+                            throw std::invalid_argument("Arithmetic expression has a null child");
+                        }
+
+                        BoundScalarExpressionPtr left = bind_scalar_expression(schema, 
+                         *arithmetic.left);
+
+                        BoundScalarExpressionPtr right = bind_scalar_expression(schema, 
+                         *arithmetic.right);
+
+                        BoundArithmeticExpression bound_arithmetic{arithmetic.operation,
+                         std::move(left), std::move(right)};
+
+                        return std::make_unique<BoundScalarExpression>(BoundScalarNode{
+                         std::move(bound_arithmetic)}, DataType::Int64);
+                    }
+
+                },
+
+                expression.node // store created node here 
+            );
+        }
 
     ScalarExpression::ScalarExpression(ScalarNode node)
         : node(std::move(node)) {}
